@@ -5,7 +5,7 @@
 'require ui';
 'require wlmbstart.ui as panel';
 
-var interfaces = rpc.declare({ object: 'network.interface', method: 'dump', expect: { interface: [] } });
+var interfaces = rpc.declare({ object: 'network.interface', method: 'dump' });
 
 return view.extend({
     load: function() {
@@ -141,7 +141,9 @@ return view.extend({
         poll.add(function() {
             return Promise.all([
                 panel.status().then(paint).catch(function() { paint(null); }),
-                interfaces().then(function(rows) {
+                interfaces().then(function(reply) {
+                    if (!reply || !Array.isArray(reply.interface)) throw new Error('接口信息不可用');
+                    var rows = reply.interface;
                     addressList.replaceChildren.apply(addressList, rows.filter(function(row) { return row.interface !== 'loopback'; }).map(function(row) {
                         var addresses = (row['ipv4-address'] || []).map(function(ip) { return ip.address; }).concat((row['ipv6-address'] || []).map(function(ip) { return ip.address; }));
                         return E('div', { 'class': 'nph-interface' }, [panel.icon(row.proto === 'qmi' || row.proto === 'ncm' ? 'bands' : 'neighbors'),
