@@ -132,6 +132,7 @@ return view.extend({
             set('battery', b.available ? b.percent + '%' : '—');
             set('battery-note', !b.available ? '电量暂不可用' : b.charging === true ? '正在充电' : b.charging === false ? '当前未充电' : '实际充电状态未知');
             battery.classList.toggle('is-unknown', !b.available); battery.classList.toggle('is-low', b.available && b.percent <= 15);
+            battery.querySelector('.nph-battery-reading > svg').replaceWith(panel.icon('battery', b.percent));
             battery.querySelector('progress').value = b.available ? b.percent : 0;
             battery.querySelector('progress').setAttribute('aria-valuetext', b.label);
             drawChart(rates, system);
