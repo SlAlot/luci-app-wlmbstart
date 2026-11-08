@@ -13,30 +13,35 @@ cleanup() {
 trap cleanup EXIT
 
 docker run -d --name "$box" -p 127.0.0.1:18080:80 \
-    --entrypoint /bin/sh "openwrt/rootfs:$sdk" -c 'sleep 600' >/dev/null
+    --entrypoint /bin/sh "openwrt/rootfs:$sdk" -c 'sleep 1200' >/dev/null
 docker cp "$pkg" "$box:/tmp/plugin.${pkg##*.}"
 # 用已发布的后端验证安装依赖，模组硬件由真机验证。
 ext=${pkg##*.}
-curl -fsSL --retry 3 "https://github.com/SlAlot/wlmb-server/releases/download/v1.1.6/wlmb-server-1.1.6-x86_64.$ext" -o "$response"
+curl -fsSL --retry 5 --retry-all-errors --connect-timeout 15 --max-time 100 "https://github.com/SlAlot/wlmb-server/releases/download/v1.1.6/wlmb-server-1.1.6-x86_64.$ext" -o "$response"
 docker cp "$response" "$box:/tmp/wlmb-server.$ext"
-docker exec "$box" sh -ec '
+docker exec -e SMOKE_HASH="$(openssl passwd -6 luci-smoke)" "$box" sh -ec '
+    mkdir -p /var/lock /var/run/ubus
     if command -v apk >/dev/null; then
         apk update
         apk add luci-base luci-mod-admin-full luci-theme-bootstrap uhttpd
-        apk add --allow-untrusted /tmp/wlmb-server.apk /tmp/plugin.apk
     else
         opkg update
         opkg install luci-base luci-mod-admin-full luci-theme-bootstrap uhttpd
-        opkg install /tmp/wlmb-server.ipk /tmp/plugin.ipk
     fi
-    mkdir -p /var/run/ubus
-    printf "%s\\n" "root:luci-smoke" | chpasswd
+    sed -i "s#^root:[^:]*:#root:${SMOKE_HASH}:#" /etc/shadow
 '
 docker exec -d "$box" /sbin/ubusd -s /var/run/ubus/ubus.sock
 docker exec "$box" sh -ec 'for n in 1 2 3 4 5; do ubus list && exit 0; sleep 1; done; exit 1'
 docker exec -d "$box" /sbin/procd -s /var/run/ubus/ubus.sock
 docker exec -d "$box" /sbin/rpcd
 docker exec "$box" ubus -t 15 wait_for system session
+docker exec "$box" sh -ec '
+    if command -v apk >/dev/null; then
+        apk add --allow-untrusted /tmp/wlmb-server.apk /tmp/plugin.apk
+    else
+        opkg install /tmp/wlmb-server.ipk /tmp/plugin.ipk
+    fi
+'
 docker exec -d "$box" /usr/sbin/uhttpd -f -p 0.0.0.0:80 -h /www -x /cgi-bin
 
 url=http://127.0.0.1:18080/cgi-bin/luci
