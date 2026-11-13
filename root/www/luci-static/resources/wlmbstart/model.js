@@ -56,7 +56,7 @@ function sample(snapshot, now) {
         trafficSupported:!!s.traffic };
 }
 function networkInterfaces(interfaces, cellularDevices, uplink) {
-    var protocols = new Set(['qmi', 'mbim', 'ncm', '3g', 'modemmanager']);
+    var protocols = new Set(['qmi', 'mbim', 'ncm', '3g', 'modemmanager', 'wlmb_air6']);
     var devices = new Set(cellularDevices);
     var entries = interfaces.map(function(row) {
         var ipv4 = (row['ipv4-address'] || []).map(function(item) { return item.address; }).filter(Boolean).join(' · ');
